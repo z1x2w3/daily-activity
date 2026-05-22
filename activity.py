@@ -1,7 +1,5 @@
 import akshare as ak
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 from datetime import datetime
 
 today = datetime.today().strftime("%Y-%m-%d")
