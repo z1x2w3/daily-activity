@@ -2,9 +2,9 @@ name: Daily Market Activity Collector
 
 on:
   schedule:
-    - cron: "0 1 * * 1-5"
-    - cron: "0 2-4 * * 1-5"
-    - cron: "0 5-7 * * 1-5"
+    - cron: "35-59/5 1 * * 1-5"
+    - cron: "*/5 2-4 * * 1-5"
+    - cron: "*/5 5-7 * * 1-5"
   workflow_dispatch:
 
 jobs:
