@@ -1,7 +1,6 @@
 import akshare as ak
 import pandas as pd
 from datetime import datetime
-import time
 
 today = datetime.today().strftime("%Y-%m-%d")
 FILE_CSV = f"daily_market_activity_{today}.csv"
@@ -26,8 +25,4 @@ def daily_market_activity():
     df.to_csv(FILE_CSV, index=False)
 
 if __name__ == "__main__":
-    for i in range(12):  # 1小时 = 12 × 5分钟
-        print(f"Run #{i} at {datetime.now()}")
         daily_market_activity()
-        if i < 11:
-            time.sleep(5 * 60)
