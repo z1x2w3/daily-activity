@@ -1,36 +1,61 @@
-name: Daily Market Activity Collector
+name: Daily news update
+
+# Reads shipping newsletters from Gmail (plus best-effort RSS), sorts them
+# signal vs noise with Stopford's tests, writes them into index.html, and
+# commits. GitHub Pages then republishes the public page.
+#
+# Needs two repository secrets:  GMAIL_USER, GMAIL_APP_PASSWORD
+# Optional repository variable:  GMAIL_QUERY  (overrides which emails are read)
 
 on:
-  workflow_dispatch: 
   schedule:
-    - cron: "35-59/15 1 * * 1-5"
-    - cron: "*/15 2-4 * * 1-5"
-    - cron: "*/15 5-7 * * 1-5"
-  
-  
+    - cron: "40 4 * * *"        # every day 04:40 UTC = 06:40 Rome (summer) / 05:40 (winter)
+  workflow_dispatch:            # "Run workflow" button for manual runs
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: daily-news
+  cancel-in-progress: false
+
 jobs:
-  run:
-    runs-on: ubuntu-latest
-
+  update:
+    runs-on: ubuntu-24.04       # pinned: avoids the ubuntu-latest -> Ubuntu 26 switch
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5        # Node 24
+      - uses: actions/setup-python@v6    # Node 24
         with:
-          python-version: "3.14.5"
+          python-version: "3.12"
 
-      - name: Install dependencies
-        run: |
-          pip install akshare==1.18.63 pandas==3.0.3
+      - name: Fetch, classify, write into index.html
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GMAIL_QUERY: ${{ vars.GMAIL_QUERY }}
+        run: python3 scripts/update_news.py
 
-      - name: Run script
-        run: |
-          python activity.py
-
+      # Runs even if the Gmail step failed, so the page shows the failure status.
       - name: Commit and push
+        if: ${{ !cancelled() }}
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add daily_market_activity_*.csv
-          git commit -m "📈 update market activity data $(date +'%Y-%m-%d')" || echo "No changes"
+          git config user.name  "news-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --staged --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git commit -m "news $(date -u '+%Y-%m-%d %H:%M') UTC"
+          git pull --rebase --quiet
           git push
+
+      # Belt and braces: ask Pages to rebuild in case the bot push is not picked up.
+      - name: Request Pages rebuild
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" --silent || echo "Pages rebuild request skipped."
